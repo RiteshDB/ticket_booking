@@ -31,3 +31,10 @@ management:
     health:
       probes:
         enabled: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: https://ticketing.local
+    audience: ticketing-api
+    access-token-ttl: 15m

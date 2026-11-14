@@ -13,6 +13,12 @@ import org.springframework.web.context.request.WebRequest;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    ProblemDetail badCredentials(
+            org.springframework.security.authentication.BadCredentialsException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     @ExceptionHandler(DuplicateEmailException.class)
     ProblemDetail duplicateEmail(DuplicateEmailException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
@@ -30,6 +36,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
-    public record FieldError(String field, String message) {}
+    public record FieldError(String field, String message) {
+    }
 }
-
