@@ -16,7 +16,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({
+        JwtProperties.class,
+        RefreshTokenProperties.class
+})
 public class JwtConfig {
     @Bean
     Clock clock() {

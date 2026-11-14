@@ -6,6 +6,8 @@ import com.ticketing.platform.user.domain.Role;
 import com.ticketing.platform.user.service.AuthService;
 import com.ticketing.platform.user.service.DuplicateEmailException;
 import com.ticketing.platform.user.service.LoginService;
+import com.ticketing.platform.user.service.RefreshTokenService;
+import com.ticketing.platform.user.service.InvalidRefreshTokenException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +28,7 @@ class AuthControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean AuthService authService;
     @MockitoBean LoginService loginService;
+    @MockitoBean RefreshTokenService sessions;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static final String VALID = """
@@ -67,7 +70,7 @@ class AuthControllerTest {
 
     @Test
     void loginReturnsTokenAndDisablesCaching() throws Exception {
-        when(loginService.login(any())).thenReturn(new TokenResponse("signed-token", "Bearer", 900));
+        when(loginService.login(any())).thenReturn(sessionResponse());
         mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(VALID))
                 .andExpect(status().isOk())
@@ -93,6 +96,52 @@ class AuthControllerTest {
                         .content("{\"email\":\"invalid\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void refreshReturnsReplacementCredentials() throws Exception {
+        when(sessions.refresh(any())).thenReturn(sessionResponse());
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.refreshToken").exists());
+    }
+
+    @Test
+    void invalidRefreshReturnsUnauthorized() throws Exception {
+        when(sessions.refresh(any())).thenThrow(new InvalidRefreshTokenException());
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON).content(refreshBody()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.detail").value("Invalid or expired refresh token."));
+    }
+
+    @Test
+    void logoutReturnsNoContent() throws Exception {
+        mvc.perform(post("/api/v1/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON).content(refreshBody()))
+                .andExpect(status().isNoContent());
+        verify(sessions).logout("a".repeat(43));
+    }
+
+    @Test
+    void malformedRefreshTokenIsRejectedBeforeService() throws Exception {
+        mvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"too-short\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(sessions);
+    }
+
+    private static SessionResponse sessionResponse() {
+        return new SessionResponse("signed-token", "Bearer", 900,
+                "b".repeat(43), java.time.Instant.now().plusSeconds(604800));
+    }
+
+    private static String refreshBody() {
+        return "{\"refreshToken\":\"" + "a".repeat(43) + "\"}";
     }
 }
 

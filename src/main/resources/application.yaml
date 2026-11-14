@@ -33,6 +33,8 @@ management:
         enabled: true
 
 app:
+  refresh:
+    session-ttl: 7d
   jwt:
     secret: ${JWT_SECRET}
     issuer: https://ticketing.local
